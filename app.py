@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -14,56 +13,32 @@ def load_model():
 # Load crop-residue mapping from training data
 @st.cache_data
 def load_crop_residue_mapping():
-    try:
-        df = pd.read_csv("train100.csv")
-        
-        # Debug: Verify data loading
-        st.write("Data loaded successfully. First 5 rows:")
-        st.write(df.head())
-        
-        # Create crop to residue mapping
-        mapping = df.groupby('Crop_Type')['Residue_Type'].unique().apply(list).to_dict()
-        
-        # Debug: Show the mapping
-        st.write("Crop to Residue Mapping:")
-        st.write(mapping)
-        
-        return mapping
-    except Exception as e:
-        st.error(f"Error loading data: {str(e)}")
-        return {}
+    df = pd.read_csv("train100.csv")
 
-# Load everything with error handling
-try:
-    model, encoders, feature_names = load_model()
-    crop_to_residues = load_crop_residue_mapping()
-    
-    if not crop_to_residues:
-        st.error("No crop-residue mapping loaded. Check your data file.")
-        st.stop()
-except Exception as e:
-    st.error(f"Initialization failed: {str(e)}")
-    st.stop()
+    mapping = {}
+    for crop in df['Crop_Type'].unique():
+        residues = df[df['Crop_Type'] == crop]['Residue_Type'].unique().tolist()
+        mapping[crop] = sorted(set(residues))
+
+    return mapping
+
+# Load everything
+model, encoders, feature_names = load_model()
+crop_to_residues = load_crop_residue_mapping()
 
 # Title
 st.title("Crop Residue to Industry Recommendation System")
 
 # Input method
+st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
 
 # === Manual Input ===
 if input_method == "Manual Entry":
     st.subheader("Enter Residue Data")
 
-    # Crop selection
-    selected_crop = st.selectbox("Crop Type", sorted(crop_to_residues.keys()))
-    
-    # Residue selection with dynamic refresh
-    selected_residue = st.selectbox(
-        "Residue Type", 
-        sorted(crop_to_residues[selected_crop]),
-        key=f"residue_{selected_crop}"  # Unique key forces refresh when crop changes
-    )
+    selected_crop = st.selectbox("Crop Type", list(crop_to_residues.keys()))
+    selected_residue = st.selectbox("Residue Type", crop_to_residues[selected_crop])
 
     input_data = {
         'Farm_ID': st.text_input("Farm ID", "F1001"),
@@ -101,14 +76,13 @@ elif input_method == "Upload CSV/JSON":
             st.error(f"❌ Error reading file: {e}")
             st.stop()
     else:
-        st.warning("Please upload a file to continue.")
+        st.warning("⚠️ Please upload a file to continue.")
         st.stop()
 
 # === Encode & Predict ===
 def preprocess_input(df_input):
     for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
-        if col in encoders:  # Check if encoder exists for this column
-            df_input[col] = encoders[col].transform(df_input[col])
+        df_input[col] = encoders[col].transform(df_input[col])
     for f in feature_names:
         if f not in df_input.columns:
             df_input[f] = 0
@@ -122,10 +96,10 @@ if st.button("Predict suitable Industry"):
         industry = encoders['Industry'].classes_[pred_idx]
         confidence = probs[pred_idx]
 
-        st.success(f"✅ Recommended Industry: **{industry}**")
+        st.success(f"Recommended Industry: **{industry}**")
         st.write(f"Confidence: **{confidence:.2%}**")
 
-        st.subheader("📊 Prediction Probabilities")
+        st.subheader(" Prediction Probabilities")
         prob_df = pd.DataFrame({
             'Industry': encoders['Industry'].classes_,
             'Probability': probs
@@ -134,3 +108,4 @@ if st.button("Predict suitable Industry"):
 
     except Exception as e:
         st.error(f"❌ Prediction failed: {e}")
+
