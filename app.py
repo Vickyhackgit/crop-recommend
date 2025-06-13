@@ -1,3 +1,5 @@
+
+
 import streamlit as st
 import pandas as pd
 import joblib
@@ -10,10 +12,23 @@ def load_model():
     data = joblib.load("crop_residue_model.joblib")
     return data['model'], data['encoders'], data['feature_names']
 
+# Load crop-residue mapping from training data
+@st.cache_data
+def load_crop_residue_mapping():
+    df = pd.read_csv("train100.csv")
+    mapping = {}
+    for _, row in df.iterrows():
+        crop = row['Crop_Type']
+        residues = [r.strip() for r in str(row['Residue_Type']).split(',')]
+        mapping[crop] = sorted(set(mapping.get(crop, []) + residues))
+    return mapping
+
+# Load everything
 model, encoders, feature_names = load_model()
+crop_to_residues = load_crop_residue_mapping()
 
 # Title
-st.title("Crop Residue to Industry Recommendation System")
+st.title("🌾 Crop Residue to Industry Recommendation System")
 
 # Input method
 st.sidebar.header("Input Method")
@@ -22,10 +37,14 @@ input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload
 # === Manual Input ===
 if input_method == "Manual Entry":
     st.subheader("📝 Enter Residue Data")
+
+    selected_crop = st.selectbox("Crop Type", list(crop_to_residues.keys()))
+    selected_residue = st.selectbox("Residue Type", crop_to_residues[selected_crop])
+
     input_data = {
         'Farm_ID': st.text_input("Farm ID", "F1001"),
-        'Crop_Type': st.selectbox("Crop Type", ["Rice", "Wheat", "Maize"]),
-        'Residue_Type': st.selectbox("Residue Type", ["Straw", "Husk"]),
+        'Crop_Type': selected_crop,
+        'Residue_Type': selected_residue,
         'Moisture_pct': st.slider("Moisture %", 0.0, 100.0, 12.5),
         'Cellulose_pct': st.slider("Cellulose %", 0.0, 100.0, 38.0),
         'CN_Ratio': st.slider("C:N Ratio", 0.0, 150.0, 80.0),
@@ -52,13 +71,13 @@ elif input_method == "Upload CSV/JSON":
                 df_input = pd.read_csv(uploaded_file)
             else:
                 df_input = pd.read_json(uploaded_file)
-            st.success("File uploaded successfully!")
+            st.success("✅ File uploaded successfully!")
             st.dataframe(df_input)
         except Exception as e:
             st.error(f"❌ Error reading file: {e}")
             st.stop()
     else:
-        st.warning("Please upload a file to continue.")
+        st.warning("⚠️ Please upload a file to continue.")
         st.stop()
 
 # === Encode & Predict ===
@@ -78,11 +97,10 @@ if st.button("Predict suitable Industry"):
         industry = encoders['Industry'].classes_[pred_idx]
         confidence = probs[pred_idx]
 
-        st.success(f"Recommended Industry: **{industry}**")
+        st.success(f"✅ Recommended Industry: **{industry}**")
         st.write(f"Confidence: **{confidence:.2%}**")
 
-        # Plot
-        st.subheader("Prediction Probabilities")
+        st.subheader("📊 Prediction Probabilities")
         prob_df = pd.DataFrame({
             'Industry': encoders['Industry'].classes_,
             'Probability': probs
@@ -91,4 +109,3 @@ if st.button("Predict suitable Industry"):
 
     except Exception as e:
         st.error(f"❌ Prediction failed: {e}")
-
