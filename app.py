@@ -1,5 +1,4 @@
 
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -15,12 +14,13 @@ def load_model():
 # Load crop-residue mapping from training data
 @st.cache_data
 def load_crop_residue_mapping():
-    df = pd.read_csv("train100.csv")
+    df = pd.read_csv("train100.csv")  # Ensure the filename is correct in your repo
+
     mapping = {}
-    for _, row in df.iterrows():
-        crop = row['Crop_Type']
-        residues = [r.strip() for r in str(row['Residue_Type']).split(',')]
-        mapping[crop] = sorted(set(mapping.get(crop, []) + residues))
+    for crop in df['Crop_Type'].unique():
+        residues = df[df['Crop_Type'] == crop]['Residue_Type'].unique().tolist()
+        mapping[crop] = sorted(set(residues))
+
     return mapping
 
 # Load everything
@@ -28,7 +28,7 @@ model, encoders, feature_names = load_model()
 crop_to_residues = load_crop_residue_mapping()
 
 # Title
-st.title("🌾 Crop Residue to Industry Recommendation System")
+st.title("Crop Residue to Industry Recommendation System")
 
 # Input method
 st.sidebar.header("Input Method")
@@ -36,7 +36,7 @@ input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload
 
 # === Manual Input ===
 if input_method == "Manual Entry":
-    st.subheader("📝 Enter Residue Data")
+    st.subheader("Enter Residue Data")
 
     selected_crop = st.selectbox("Crop Type", list(crop_to_residues.keys()))
     selected_residue = st.selectbox("Residue Type", crop_to_residues[selected_crop])
@@ -77,7 +77,7 @@ elif input_method == "Upload CSV/JSON":
             st.error(f"❌ Error reading file: {e}")
             st.stop()
     else:
-        st.warning("⚠️ Please upload a file to continue.")
+        st.warning(" Please upload a file to continue.")
         st.stop()
 
 # === Encode & Predict ===
