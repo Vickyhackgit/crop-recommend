@@ -1,4 +1,3 @@
-
 import streamlit as st
 import pandas as pd
 import joblib
@@ -14,18 +13,13 @@ def load_model():
 # Load crop-residue mapping from training data
 @st.cache_data
 def load_crop_residue_mapping():
-    df = pd.read_csv("train100.csv")  # Make sure this file is present and renamed without space!
+    df = pd.read_csv("train100.csv")
+    
     mapping = {}
-
     for crop in df['Crop_Type'].unique():
-        crop_df = df[df['Crop_Type'] == crop]
-        residues = []
-        for val in crop_df['Residue_Type']:
-            if pd.notna(val):
-                # Split by comma and strip whitespace
-                residues.extend([x.strip() for x in str(val).split(',')])
-        mapping[crop] = sorted(set(residues))
-
+        # Get all residue types for this crop (no splitting needed)
+        residues = df[df['Crop_Type'] == crop]['Residue_Type'].unique().tolist()
+        mapping[crop] = sorted(residues)  # Sort alphabetically
     return mapping
 
 # Load everything
@@ -67,6 +61,7 @@ if input_method == "Manual Entry":
     }
     df_input = pd.DataFrame([input_data])
 
+# Rest of your code remains the same...
 # === File Upload Input ===
 elif input_method == "Upload CSV/JSON":
     uploaded_file = st.file_uploader("Upload a single row of farm residue data (CSV or JSON)", type=["csv", "json"])
