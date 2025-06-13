@@ -14,7 +14,7 @@ def load_model():
 # Load crop-residue mapping from training data
 @st.cache_data
 def load_crop_residue_mapping():
-    df = pd.read_csv("train 100data.csv")
+    df = pd.read_csv("train100.csv")
 
     mapping = {}
     for crop in df['Crop_Type'].unique():
