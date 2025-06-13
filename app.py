@@ -14,15 +14,17 @@ def load_model():
 # Load crop-residue mapping from training data
 @st.cache_data
 def load_crop_residue_mapping():
-    df = pd.read_csv("train100.csv")  # Ensure the filename is correct in your repo
+    df = pd.read_csv("train 100data.csv")
 
     mapping = {}
     for crop in df['Crop_Type'].unique():
-        residues = df[df['Crop_Type'] == crop]['Residue_Type'].unique().tolist()
-        mapping[crop] = sorted(set(residues))
-
+        residues = []
+        for val in df[df['Crop_Type'] == crop]['Residue_Type']:
+            if pd.notna(val):
+                split_vals = [x.strip() for x in str(val).split(',')]
+                residues.extend(split_vals)
+        mapping[crop] = sorted(set(residues))  # Remove duplicates and sort
     return mapping
-
 # Load everything
 model, encoders, feature_names = load_model()
 crop_to_residues = load_crop_residue_mapping()
