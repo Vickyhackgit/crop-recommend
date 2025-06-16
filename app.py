@@ -18,10 +18,10 @@ model, encoders, feature_names = load_model()
 # === Crop-Residue Reference ===
 CROP_RESIDUE_INFO = {
     'Wheat': {'residue_to_crop_ratio': 1.5, 'residue_distribution': {'Straw': 0.80, 'Husk': 0.20}},
-    'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'Chaff': 0.10}},
-    'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}},
-    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.40}},
-    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Husks': 0.30}}
+    'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'HUsk': 0.10}},
+    'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Husk': 0.20}},
+    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Straw': 0.40}},
+    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Straw': 0.70, 'Husks': 0.30}}
 }
 
 st.title("Crop Residue to Industry Recommendation System")
