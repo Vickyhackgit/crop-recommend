@@ -25,7 +25,7 @@ CROP_RESIDUE_INFO = {
 }
 
 # === Title ===
-st.title("Crop Residue to Industry Recommendation System")
+st.title("\U0001F33E Crop Residue to Industry Recommendation System")
 
 # === Input Method ===
 st.sidebar.header("Input Method")
@@ -103,8 +103,15 @@ if input_method == "Manual Entry":
                 total_probs += weighted_probs
 
             final_probs = total_probs / total_probs.sum()
-            st.subheader("Combined Industry Allocation (All Residues)")
-            st.bar_chart(final_probs)
+            st.subheader("📊 Combined Industry Allocation (All Residues)")
+
+            # Final Bar Plot
+            fig2, ax2 = plt.subplots()
+            sns.barplot(x=final_probs.values, y=final_probs.index, ax=ax2, palette="crest")
+            ax2.set_xlabel("Allocation Share")
+            ax2.set_ylabel("Industry")
+            ax2.set_title("Recommended Industry Allocation Based on All Residues")
+            st.pyplot(fig2)
 
         else:
             st.warning("Selected crop not found in reference database.")
