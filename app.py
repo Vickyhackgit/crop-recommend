@@ -20,11 +20,11 @@ CROP_RESIDUE_INFO = {
     'Wheat': {'residue_to_crop_ratio': 1.5, 'residue_distribution': {'Straw': 0.80, 'Husk': 0.20}},
     'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'Chaff': 0.10}},
     'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}},
-    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.30, 'Tops': 0.10}},
-    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
+    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.40}},
+    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Husks': 0.30}}
 }
 
-st.title("🌾 Crop Residue to Industry Recommendation System")
+st.title("Crop Residue to Industry Recommendation System")
 
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
@@ -102,11 +102,11 @@ if input_method == "Manual Entry":
 
             # Final Allocation
             df_result = pd.DataFrame(industry_results, columns=['Residue', 'Industry', 'Quantity_tons', 'Confidence'])
-            st.write("### 🏭 Residue to Industry Mapping")
+            st.write("### Residue to Industry Mapping")
             st.dataframe(df_result)
 
             totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
-            st.subheader("📊 Final Industry Allocation")
+            st.subheader("Final Industry Allocation")
             st.bar_chart(totals)
 
         else:
