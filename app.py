@@ -1,4 +1,5 @@
-# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Fixed Calculation + Graph Colors)
+
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Enhanced Visuals + Fixed Errors)
 
 import streamlit as st
 import pandas as pd
@@ -15,7 +16,7 @@ def load_model():
 
 model, encoders, feature_names = load_model()
 
-# === Reference Residue Info (Correct Quantities from Your Table) ===
+# === Reference Residue Info ===
 CROP_RESIDUE_INFO = {
     'Wheat': {
         'residue_to_crop_ratio': 0.92,
@@ -60,11 +61,10 @@ CROP_RESIDUE_INFO = {
 # === App Title ===
 st.title("\U0001F33E Crop Residue to Industry Recommendation System")
 
-# === Input Type ===
+# === Input Method ===
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
 
-# === Manual Entry ===
 if input_method == "Manual Entry":
     st.subheader("Enter Farm & Residue Details")
     farm_id = st.text_input("Farm ID", "F1001")
@@ -105,25 +105,27 @@ if input_method == "Manual Entry":
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # Custom bar chart using matplotlib for colored bars
+            # Custom bar chart using matplotlib with values on top
             fig, ax = plt.subplots()
-            ax.bar(residue_qty.keys(), residue_qty.values(), color=sns.color_palette("Set2"))
+            bars = ax.bar(residue_qty.keys(), residue_qty.values(), color=sns.color_palette("Set2"))
             ax.set_ylabel("Quantity (tons)")
             ax.set_title("Residue Type Breakdown")
+            for bar in bars:
+                height = bar.get_height()
+                ax.text(bar.get_x() + bar.get_width()/2., height + 0.5, f'{height:.1f}', ha='center', va='bottom')
             st.pyplot(fig)
 
+            # Industry recommendation per residue
             for res_type, qty in residue_qty.items():
                 sample = input_features.copy()
                 sample['Residue_Type'] = res_type
                 df = pd.DataFrame([sample])
 
-                # Validate and encode only known classes
                 for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
                     if df.at[0, col] not in encoders[col].classes_:
                         st.error(f"'{df.at[0, col]}' is not in the model's known values for {col}.")
                         st.stop()
-                    else:
-                        df[col] = encoders[col].transform(df[col])
+                    df[col] = encoders[col].transform(df[col])
 
                 for f in feature_names:
                     if f not in df.columns:
@@ -152,7 +154,6 @@ if input_method == "Manual Entry":
         else:
             st.warning("Residue mapping not available for selected crop.")
 
-# === Upload Option (optional for future use) ===
 elif input_method == "Upload CSV/JSON":
     uploaded_file = st.file_uploader("Upload a single-row CSV or JSON", type=["csv", "json"])
     if uploaded_file is not None:
