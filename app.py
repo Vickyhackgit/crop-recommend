@@ -1,4 +1,4 @@
-# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Enhanced with Pie Chart)
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Pie Chart for Residue Only)
 
 import streamlit as st
 import pandas as pd
@@ -104,7 +104,7 @@ if input_method == "Manual Entry":
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # Pie Chart for Residue Distribution
+            # Pie Chart for Residue Breakdown
             fig, ax = plt.subplots()
             labels = list(residue_qty.keys())
             sizes = list(residue_qty.values())
@@ -140,11 +140,8 @@ if input_method == "Manual Entry":
                     prob_df = pd.DataFrame({
                         'Industry': encoders['Industry'].classes_,
                         'Probability': probs
-                    }).sort_values(by='Probability', ascending=False)
-                    fig2, ax2 = plt.subplots()
-                    sns.barplot(data=prob_df, x='Probability', y='Industry', ax=ax2, palette="crest")
-                    ax2.set_title("Industry Prediction Probabilities")
-                    st.pyplot(fig2)
+                    })
+                    st.bar_chart(prob_df.set_index("Industry"))
 
                 except Exception as e:
                     st.error(f"Prediction error for {res_type}: {e}")
