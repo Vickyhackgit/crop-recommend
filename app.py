@@ -25,7 +25,7 @@ CROP_RESIDUE_INFO = {
 }
 
 # === Title ===
-st.title("Crop Residue to Industry Recommendation System")
+st.title("\U0001F33E Crop Residue to Industry Recommendation System")
 
 # === Input Method ===
 st.sidebar.header("Input Method")
@@ -108,14 +108,17 @@ if input_method == "Manual Entry":
             df_alloc = pd.DataFrame(industry_allocation, columns=['Residue', 'Industry', 'Quantity_tons'])
             industry_totals = df_alloc.groupby('Industry')['Quantity_tons'].sum().sort_values(ascending=False)
 
-            st.subheader("Industry Allocation Summary")
-            fig2, ax2 = plt.subplots()
-            sns.barplot(x=industry_totals.values, y=industry_totals.index, ax=ax2, palette="crest")
-            ax2.set_xlabel("Total Residue Allocated (tons)")
-            ax2.set_title("Recommended Industry Allocation")
-            for i, v in enumerate(industry_totals.values):
-                ax2.text(v + 1, i, f"{v:.1f}t", va='center')
-            st.pyplot(fig2)
+            if not industry_totals.empty:
+                st.subheader("🏭 Industry Allocation Summary")
+                fig2, ax2 = plt.subplots()
+                sns.barplot(x=industry_totals.values, y=industry_totals.index, ax=ax2, palette="crest")
+                ax2.set_xlabel("Total Residue Allocated (tons)")
+                ax2.set_title("Recommended Industry Allocation")
+                for i, v in enumerate(industry_totals.values):
+                    ax2.text(v + 1, i, f"{v:.1f}t", va='center')
+                st.pyplot(fig2)
+            else:
+                st.warning("⚠️ Industry allocation could not be generated. Check input or model predictions.")
 
         else:
             st.warning("⚠️ Selected crop not found in reference data.")
