@@ -1,4 +1,4 @@
-# app.py - Crop Residue to Industry Prediction with Pie + Bar Chart Output
+# app.py - Streamlit Crop Residue to Industry Recommendation System (Final Enhanced Version)
 
 import streamlit as st
 import pandas as pd
@@ -15,28 +15,26 @@ def load_model():
 
 model, encoders, feature_names = load_model()
 
-# === Reference Residue Info ===
+# === Crop-Residue Reference ===
 CROP_RESIDUE_INFO = {
-    'Wheat': {'residue_to_crop_ratio': 0.92, 'residue_distribution': {'Straw': 0.85, 'Husk': 0.10, 'Stalks': 0.05}},
-    'Rice': {'residue_to_crop_ratio': 0.4572, 'residue_distribution': {'Straw': 0.90, 'Chaff/Stalks': 0.10}},
-    'Sugarcane': {'residue_to_crop_ratio': 0.1425, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.30, 'Tops': 0.10}},
-    'Cotton': {'residue_to_crop_ratio': 0.5679, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}},
-    'Maize': {'residue_to_crop_ratio': 0.0846, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}}
+    'Wheat': {'residue_to_crop_ratio': 1.5, 'residue_distribution': {'Straw': 0.80, 'Husk': 0.20}},
+    'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'Chaff': 0.10}},
+    'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}},
+    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.30, 'Tops': 0.10}},
+    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
 }
 
-# === Title ===
 st.title("\U0001F33E Crop Residue to Industry Recommendation System")
 
-# === Input Method ===
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
 
 if input_method == "Manual Entry":
-    st.subheader("Enter Farm & Production Details")
+    st.subheader("Enter Farm & Residue Details")
     farm_id = st.text_input("Farm ID", "F1001")
     crop_type = st.selectbox("Crop Type", list(CROP_RESIDUE_INFO.keys()))
-    production = st.number_input("Crop Production (tons)", min_value=1.0, value=250.0)
-    area = st.number_input("Area (hectares)", min_value=1.0, value=50.0)
+    production = st.number_input("Crop Production (tons)", min_value=1.0, value=100.0)
+    area = st.number_input("Area (hectares)", min_value=1.0, value=20.0)
 
     input_features = {
         'Farm_ID': farm_id,
@@ -59,72 +57,64 @@ if input_method == "Manual Entry":
 
     if st.button("Predict Suitable Industries for Residues"):
         if crop_type in CROP_RESIDUE_INFO:
-            st.subheader("Residue Estimation")
+            st.subheader("Estimated Residue & Recommendations")
             ratio = CROP_RESIDUE_INFO[crop_type]['residue_to_crop_ratio']
             total_residue = production * ratio
-            yield_per_ha = production / area
-            st.write(f"**Yield per hectare:** {yield_per_ha:.2f} tons/ha")
-            st.write(f"**Total Residue Generated:** {total_residue:.2f} tons (Ratio: {ratio})")
+            st.write(f"Residue-to-Crop Ratio: **{ratio}**, Total Residue: **{total_residue:.2f} tons**")
 
             residue_qty = {
-                r_type: total_residue * r_pct
-                for r_type, r_pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
+                res_type: total_residue * pct
+                for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # PIE CHART
+            # Pie Chart of Residue
             fig1, ax1 = plt.subplots()
-            labels = [f"{k} ({v:.1f}t)" for k, v in residue_qty.items()]
-            ax1.pie(residue_qty.values(), labels=labels, autopct='%1.1f%%', startangle=90,
-                    colors=sns.color_palette("bright"))
+            ax1.pie(residue_qty.values(), labels=[f"{k} ({v:.1f}t)" for k, v in residue_qty.items()], autopct='%1.1f%%',
+                    startangle=90, colors=sns.color_palette("bright"))
             ax1.axis('equal')
             ax1.set_title("Residue Type Distribution")
             st.pyplot(fig1)
 
-            # === Industry Recommendation ===
-            industry_allocation = []
-
+            # Prediction & Allocation
+            industry_results = []
             for res_type, qty in residue_qty.items():
-                sample = input_features.copy()
-                sample['Residue_Type'] = res_type
-                df = pd.DataFrame([sample])
-
+                entry = input_features.copy()
+                entry['Residue_Type'] = res_type
+                df = pd.DataFrame([entry])
                 for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
-                    if df.at[0, col] not in encoders[col].classes_:
-                        st.error(f"Invalid value for {col}: {df.at[0, col]}")
-                        st.stop()
                     df[col] = encoders[col].transform(df[col])
-
                 for f in feature_names:
                     if f not in df.columns:
                         df[f] = 0
                 df = df[feature_names]
 
                 probs = model.predict_proba(df)[0]
-                best_idx = np.argmax(probs)
-                best_industry = encoders['Industry'].classes_[best_idx]
-                industry_allocation.append((res_type, best_industry, qty))
+                idx = np.argmax(probs)
+                industry = encoders['Industry'].classes_[idx]
+                confidence = probs[idx]
+                industry_results.append((res_type, industry, qty, confidence))
 
-            # Grouped Allocation Summary
-            df_alloc = pd.DataFrame(industry_allocation, columns=['Residue', 'Industry', 'Quantity_tons'])
-            industry_totals = df_alloc.groupby('Industry')['Quantity_tons'].sum().sort_values(ascending=False)
+            # Final Allocation
+            df_result = pd.DataFrame(industry_results, columns=['Residue', 'Industry', 'Quantity_tons', 'Confidence'])
+            st.write("### 🏭 Residue to Industry Mapping")
+            st.dataframe(df_result)
 
-            if not industry_totals.empty:
-                st.subheader("🏭 Industry Allocation Summary")
-                fig2, ax2 = plt.subplots()
-                sns.barplot(x=industry_totals.values, y=industry_totals.index, ax=ax2, palette="crest")
-                ax2.set_xlabel("Total Residue Allocated (tons)")
-                ax2.set_title("Recommended Industry Allocation")
-                for i, v in enumerate(industry_totals.values):
-                    ax2.text(v + 1, i, f"{v:.1f}t", va='center')
-                st.pyplot(fig2)
-            else:
-                st.warning("⚠️ Industry allocation could not be generated. Check input or model predictions.")
+            totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
+            st.subheader("📊 Final Industry Allocation")
+            fig2, ax2 = plt.subplots()
+            sns.barplot(x=totals.values, y=totals.index, palette="crest", ax=ax2)
+            for i, v in enumerate(totals.values):
+                ax2.text(v + 0.5, i, f"{v:.1f}t", va='center')
+            ax2.set_xlabel("Total Residue (tons)")
+            ax2.set_ylabel("Industry")
+            ax2.set_title("Aggregated Industry Allocation")
+            st.pyplot(fig2)
 
         else:
-            st.warning("⚠️ Selected crop not found in reference data.")
+            st.warning("Selected crop type not found in database.")
 
 elif input_method == "Upload CSV/JSON":
-    uploaded_file = st.file_uploader("Upload a CSV or JSON file", type=["csv", "json"])
+    uploaded_file = st.file_uploader("Upload CSV/JSON with residue details", type=["csv", "json"])
     if uploaded_file:
         try:
             df_input = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_json(uploaded_file)
