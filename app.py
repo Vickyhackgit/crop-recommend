@@ -1,4 +1,4 @@
-# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Pie Chart for Residue Only)
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Combined Industry Graph + Modern Pie Chart)
 
 import streamlit as st
 import pandas as pd
@@ -104,14 +104,18 @@ if input_method == "Manual Entry":
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # Pie Chart for Residue Breakdown
+            # Pie Chart (modern color palette)
             fig, ax = plt.subplots()
             labels = list(residue_qty.keys())
             sizes = list(residue_qty.values())
-            ax.pie(sizes, labels=[f"{l} ({s:.1f}t)" for l, s in zip(labels, sizes)], autopct='%1.1f%%', startangle=90, colors=sns.color_palette("pastel"))
+            colors = sns.color_palette("bright")
+            ax.pie(sizes, labels=[f"{l} ({s:.1f}t)" for l, s in zip(labels, sizes)], autopct='%1.1f%%', startangle=90, colors=colors)
             ax.axis('equal')
             ax.set_title("Residue Allocation by Type (in tons)")
             st.pyplot(fig)
+
+            # Combined industry prediction from all residues
+            total_industry_probs = pd.Series(0.0, index=encoders['Industry'].classes_)
 
             for res_type, qty in residue_qty.items():
                 sample = input_features.copy()
@@ -131,20 +135,18 @@ if input_method == "Manual Entry":
 
                 try:
                     probs = model.predict_proba(df)[0]
-                    idx = np.argmax(probs)
-                    industry = encoders['Industry'].classes_[idx]
-                    confidence = probs[idx]
-
-                    st.success(f"{qty:.2f} tons of **{res_type}** → **{industry}** ({confidence:.1%} confidence)")
-
-                    prob_df = pd.DataFrame({
-                        'Industry': encoders['Industry'].classes_,
-                        'Probability': probs
-                    })
-                    st.bar_chart(prob_df.set_index("Industry"))
-
+                    weighted_probs = pd.Series(probs, index=encoders['Industry'].classes_) * qty
+                    total_industry_probs += weighted_probs
                 except Exception as e:
                     st.error(f"Prediction error for {res_type}: {e}")
+
+            # Normalize to get relative proportions
+            industry_recommendation = total_industry_probs.sort_values(ascending=False)
+            final_df = industry_recommendation / industry_recommendation.sum()
+
+            st.subheader("Combined Industry Allocation (All Residues)")
+            st.bar_chart(final_df)
+
         else:
             st.warning("Residue mapping not available for selected crop.")
 
