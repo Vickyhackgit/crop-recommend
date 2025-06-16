@@ -1,49 +1,48 @@
+
+
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction
+
 import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Load the model
+# === Load ML Model ===
 @st.cache_resource
 def load_model():
     data = joblib.load("crop_residue_model.joblib")
     return data['model'], data['encoders'], data['feature_names']
 
-# Load crop-residue mapping from training data
-@st.cache_data
-def load_crop_residue_mapping():
-    df = pd.read_csv("train100.csv")
-
-    mapping = {}
-    for crop in df['Crop_Type'].unique():
-        residues = df[df['Crop_Type'] == crop]['Residue_Type'].unique().tolist()
-        mapping[crop] = sorted(set(residues))
-
-    return mapping
-
-# Load everything
 model, encoders, feature_names = load_model()
-crop_to_residues = load_crop_residue_mapping()
 
-# Title
-st.title("Crop Residue to Industry Recommendation System")
+# === Reference Residue Info ===
+CROP_RESIDUE_INFO = {
+    'Wheat': {'residue_to_crop_ratio': 1.5, 'residue_distribution': {'Straw': 0.80, 'Husk': 0.20}},
+    'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'Chaff': 0.10}},
+    'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}},
+    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.30, 'Tops': 0.10}},
+    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
+}
 
-# Input method
+# === App Title ===
+st.title("\U0001F33E Crop Residue to Industry Recommendation System")
+
+# === Input Type ===
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
 
-# === Manual Input ===
+# === Manual Entry ===
 if input_method == "Manual Entry":
-    st.subheader("Enter Residue Data")
+    st.subheader("Enter Farm & Residue Details")
+    farm_id = st.text_input("Farm ID", "F1001")
+    crop_type = st.selectbox("Crop Type", list(CROP_RESIDUE_INFO.keys()))
+    production = st.number_input("Crop Production (tons)", min_value=1.0, value=100.0)
+    area = st.number_input("Area (hectares)", min_value=1.0, value=20.0)
 
-    selected_crop = st.selectbox("Crop Type", list(crop_to_residues.keys()))
-    selected_residue = st.selectbox("Residue Type", crop_to_residues[selected_crop])
-
-    input_data = {
-        'Farm_ID': st.text_input("Farm ID", "F1001"),
-        'Crop_Type': selected_crop,
-        'Residue_Type': selected_residue,
+    input_features = {
+        'Farm_ID': farm_id,
+        'Crop_Type': crop_type,
         'Moisture_pct': st.slider("Moisture %", 0.0, 100.0, 12.5),
         'Cellulose_pct': st.slider("Cellulose %", 0.0, 100.0, 38.0),
         'CN_Ratio': st.slider("C:N Ratio", 0.0, 150.0, 80.0),
@@ -59,53 +58,63 @@ if input_method == "Manual Entry":
         'Local_Market_Price': st.slider("Local Market Price", 0, 5000, 125),
         'Residue_Age_days': st.slider("Residue Age (days)", 0, 365, 35)
     }
-    df_input = pd.DataFrame([input_data])
 
-# === File Upload Input ===
+    if st.button("Predict Suitable Industries for Residues"):
+        if crop_type in CROP_RESIDUE_INFO:
+            st.subheader("Estimated Residue & Recommendations")
+            ratio = CROP_RESIDUE_INFO[crop_type]['residue_to_crop_ratio']
+            total_residue = production * ratio
+            st.write(f"Residue-to-Crop Ratio: **{ratio}**, Total Residue: **{total_residue:.2f} tons**")
+
+            residue_qty = {
+                res_type: total_residue * pct
+                for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
+            }
+            st.bar_chart(pd.Series(residue_qty))
+
+            for res_type, qty in residue_qty.items():
+                sample = input_features.copy()
+                sample['Residue_Type'] = res_type
+                df = pd.DataFrame([sample])
+
+                for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
+                    df[col] = encoders[col].transform(df[col])
+                for f in feature_names:
+                    if f not in df.columns:
+                        df[f] = 0
+                df = df[feature_names]
+
+                try:
+                    probs = model.predict_proba(df)[0]
+                    idx = np.argmax(probs)
+                    industry = encoders['Industry'].classes_[idx]
+                    confidence = probs[idx]
+
+                    st.success(f"{qty:.2f} tons of **{res_type}** → **{industry}** ({confidence:.1%} confidence)")
+
+                    prob_df = pd.DataFrame({
+                        'Industry': encoders['Industry'].classes_,
+                        'Probability': probs
+                    })
+                    st.bar_chart(prob_df.set_index("Industry"))
+
+                except Exception as e:
+                    st.error(f"Prediction error for {res_type}: {e}")
+        else:
+            st.warning("Residue mapping not available for selected crop.")
+
+# === Upload Option (optional for future use) ===
 elif input_method == "Upload CSV/JSON":
-    uploaded_file = st.file_uploader("Upload a single row of farm residue data (CSV or JSON)", type=["csv", "json"])
+    uploaded_file = st.file_uploader("Upload a single-row CSV or JSON", type=["csv", "json"])
     if uploaded_file is not None:
         try:
             if uploaded_file.name.endswith(".csv"):
                 df_input = pd.read_csv(uploaded_file)
             else:
                 df_input = pd.read_json(uploaded_file)
-            st.success("✅ File uploaded successfully!")
+            st.success("File uploaded successfully!")
             st.dataframe(df_input)
         except Exception as e:
-            st.error(f"❌ Error reading file: {e}")
-            st.stop()
+            st.error(f"Error reading file: {e}")
     else:
-        st.warning("⚠️ Please upload a file to continue.")
-        st.stop()
-
-# === Encode & Predict ===
-def preprocess_input(df_input):
-    for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
-        df_input[col] = encoders[col].transform(df_input[col])
-    for f in feature_names:
-        if f not in df_input.columns:
-            df_input[f] = 0
-    return df_input[feature_names]
-
-if st.button("Predict suitable Industry"):
-    try:
-        X = preprocess_input(df_input)
-        probs = model.predict_proba(X)[0]
-        pred_idx = np.argmax(probs)
-        industry = encoders['Industry'].classes_[pred_idx]
-        confidence = probs[pred_idx]
-
-        st.success(f"Recommended Industry: **{industry}**")
-        st.write(f"Confidence: **{confidence:.2%}**")
-
-        st.subheader(" Prediction Probabilities")
-        prob_df = pd.DataFrame({
-            'Industry': encoders['Industry'].classes_,
-            'Probability': probs
-        })
-        st.bar_chart(prob_df.set_index("Industry"))
-
-    except Exception as e:
-        st.error(f"❌ Prediction failed: {e}")
-
+        st.warning("Please upload a file to continue.")
