@@ -1,4 +1,4 @@
-# app.py - Crop Residue to Industry Prediction with Pie + Dynamic Blue Bar Graph
+# app.py - Crop Residue to Industry Prediction (Final with Encoder Check)
 
 import streamlit as st
 import pandas as pd
@@ -24,7 +24,7 @@ CROP_RESIDUE_INFO = {
     'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
 }
 
-st.title("\U0001F33E Crop Residue to Industry Recommendation System")
+st.title("Crop Residue to Industry Recommendation System")
 
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
@@ -81,8 +81,14 @@ if input_method == "Manual Entry":
                 entry = input_features.copy()
                 entry['Residue_Type'] = res_type
                 df = pd.DataFrame([entry])
+
                 for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
-                    df[col] = encoders[col].transform(df[col])
+                    if df.at[0, col] in encoders[col].classes_:
+                        df[col] = encoders[col].transform(df[col])
+                    else:
+                        st.error(f"❌ Value '{df.at[0, col]}' not recognized for column '{col}'. Please check your input.")
+                        st.stop()
+
                 for f in feature_names:
                     if f not in df.columns:
                         df[f] = 0
@@ -96,11 +102,11 @@ if input_method == "Manual Entry":
 
             # Final Allocation
             df_result = pd.DataFrame(industry_results, columns=['Residue', 'Industry', 'Quantity_tons', 'Confidence'])
-            st.write("### 🏭 Residue to Industry Mapping")
+            st.write("### Residue to Industry Mapping")
             st.dataframe(df_result)
 
             totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
-            st.subheader("📊 Final Industry Allocation")
+            st.subheader("Final Industry Allocation")
             st.bar_chart(totals)
 
         else:
@@ -115,4 +121,3 @@ elif input_method == "Upload CSV/JSON":
             st.dataframe(df_input)
         except Exception as e:
             st.error(f"Error reading file: {e}")
-
