@@ -1,12 +1,11 @@
-
-
-# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Fixed Calculation + Graph Colors)
 
 import streamlit as st
 import pandas as pd
 import joblib
 import numpy as np
 import matplotlib.pyplot as plt
+import seaborn as sns
 
 # === Load ML Model ===
 @st.cache_resource
@@ -16,13 +15,46 @@ def load_model():
 
 model, encoders, feature_names = load_model()
 
-# === Reference Residue Info ===
+# === Reference Residue Info (Correct Quantities from Your Table) ===
 CROP_RESIDUE_INFO = {
-    'Wheat': {'residue_to_crop_ratio': 1.5, 'residue_distribution': {'Straw': 0.80, 'Husk': 0.20}},
-    'Rice': {'residue_to_crop_ratio': 1.7, 'residue_distribution': {'Straw': 0.90, 'Chaff': 0.10}},
-    'Maize': {'residue_to_crop_ratio': 1.2, 'residue_distribution': {'Stover': 0.50, 'Cobs': 0.30, 'Leaves': 0.20}},
-    'Sugarcane': {'residue_to_crop_ratio': 0.4, 'residue_distribution': {'Bagasse': 0.60, 'Trash': 0.30, 'Tops': 0.10}},
-    'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
+    'Wheat': {
+        'residue_to_crop_ratio': 0.92,
+        'residue_distribution': {
+            'Straw': 0.85,
+            'Husk': 0.10,
+            'Stalks': 0.05
+        }
+    },
+    'Rice': {
+        'residue_to_crop_ratio': 0.4572,
+        'residue_distribution': {
+            'Straw': 0.90,
+            'Chaff/Stalks': 0.10
+        }
+    },
+    'Sugarcane': {
+        'residue_to_crop_ratio': 0.1425,
+        'residue_distribution': {
+            'Bagasse': 0.60,
+            'Trash': 0.30,
+            'Tops': 0.10
+        }
+    },
+    'Cotton': {
+        'residue_to_crop_ratio': 0.5679,
+        'residue_distribution': {
+            'Stalks': 0.70,
+            'Boll Shells/Husks': 0.30
+        }
+    },
+    'Maize': {
+        'residue_to_crop_ratio': 0.0846,
+        'residue_distribution': {
+            'Stover': 0.50,
+            'Cobs': 0.30,
+            'Leaves': 0.20
+        }
+    }
 }
 
 # === App Title ===
@@ -37,8 +69,8 @@ if input_method == "Manual Entry":
     st.subheader("Enter Farm & Residue Details")
     farm_id = st.text_input("Farm ID", "F1001")
     crop_type = st.selectbox("Crop Type", list(CROP_RESIDUE_INFO.keys()))
-    production = st.number_input("Crop Production (tons)", min_value=1.0, value=100.0)
-    area = st.number_input("Area (hectares)", min_value=1.0, value=20.0)
+    production = st.number_input("Crop Production (tons)", min_value=1.0, value=250.0)
+    area = st.number_input("Area (hectares)", min_value=1.0, value=50.0)
 
     input_features = {
         'Farm_ID': farm_id,
@@ -52,8 +84,8 @@ if input_method == "Manual Entry":
         'Silica_pct': st.slider("Silica %", 0.0, 100.0, 6.0),
         'Ash_pct': st.slider("Ash %", 0.0, 100.0, 8.1),
         'Bulk_Density': st.slider("Bulk Density", 0.0, 2.0, 0.45),
-        'Harvest_Season': st.selectbox("Harvest Season", ["Autumn", "Winter", "Summer"]),
-        'Storage_Condition': st.selectbox("Storage Condition", ["Covered", "Open"]),
+        'Harvest_Season': st.selectbox("Harvest Season", list(encoders['Harvest_Season'].classes_)),
+        'Storage_Condition': st.selectbox("Storage Condition", list(encoders['Storage_Condition'].classes_)),
         'Transportation_Distance_km': st.slider("Transport Distance (km)", 0, 500, 30),
         'Local_Market_Price': st.slider("Local Market Price", 0, 5000, 125),
         'Residue_Age_days': st.slider("Residue Age (days)", 0, 365, 35)
@@ -64,21 +96,35 @@ if input_method == "Manual Entry":
             st.subheader("Estimated Residue & Recommendations")
             ratio = CROP_RESIDUE_INFO[crop_type]['residue_to_crop_ratio']
             total_residue = production * ratio
+            yield_per_ha = production / area
+            st.write(f"Yield per hectare: **{yield_per_ha:.2f} tons/ha**")
             st.write(f"Residue-to-Crop Ratio: **{ratio}**, Total Residue: **{total_residue:.2f} tons**")
 
             residue_qty = {
                 res_type: total_residue * pct
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
-            st.bar_chart(pd.Series(residue_qty))
+
+            # Custom bar chart using matplotlib for colored bars
+            fig, ax = plt.subplots()
+            ax.bar(residue_qty.keys(), residue_qty.values(), color=sns.color_palette("Set2"))
+            ax.set_ylabel("Quantity (tons)")
+            ax.set_title("Residue Type Breakdown")
+            st.pyplot(fig)
 
             for res_type, qty in residue_qty.items():
                 sample = input_features.copy()
                 sample['Residue_Type'] = res_type
                 df = pd.DataFrame([sample])
 
+                # Validate and encode only known classes
                 for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
-                    df[col] = encoders[col].transform(df[col])
+                    if df.at[0, col] not in encoders[col].classes_:
+                        st.error(f"'{df.at[0, col]}' is not in the model's known values for {col}.")
+                        st.stop()
+                    else:
+                        df[col] = encoders[col].transform(df[col])
+
                 for f in feature_names:
                     if f not in df.columns:
                         df[f] = 0
@@ -95,8 +141,11 @@ if input_method == "Manual Entry":
                     prob_df = pd.DataFrame({
                         'Industry': encoders['Industry'].classes_,
                         'Probability': probs
-                    })
-                    st.bar_chart(prob_df.set_index("Industry"))
+                    }).sort_values(by='Probability', ascending=False)
+                    fig2, ax2 = plt.subplots()
+                    sns.barplot(data=prob_df, x='Probability', y='Industry', ax=ax2, palette="crest")
+                    ax2.set_title("Industry Prediction Probabilities")
+                    st.pyplot(fig2)
 
                 except Exception as e:
                     st.error(f"Prediction error for {res_type}: {e}")
