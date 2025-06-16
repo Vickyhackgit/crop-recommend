@@ -1,4 +1,4 @@
-# app.py - Crop Residue to Industry Prediction with Dynamic Graphs
+# app.py - Crop Residue to Industry Prediction with Combined Graphs
 
 import streamlit as st
 import pandas as pd
@@ -25,7 +25,7 @@ CROP_RESIDUE_INFO = {
 }
 
 # === Title ===
-st.title("\U0001F33E Crop Residue to Industry Recommendation System")
+st.title("🌾 Crop Residue to Industry Recommendation System")
 
 # === Input Method ===
 st.sidebar.header("Input Method")
@@ -81,7 +81,7 @@ if input_method == "Manual Entry":
             st.pyplot(fig1)
 
             # === Industry Prediction ===
-            industry_allocation = []
+            total_probs = pd.Series(0.0, index=encoders['Industry'].classes_)
 
             for res_type, qty in residue_qty.items():
                 sample = input_features.copy()
@@ -99,22 +99,12 @@ if input_method == "Manual Entry":
                 df = df[feature_names]
 
                 probs = model.predict_proba(df)[0]
-                best_idx = np.argmax(probs)
-                best_industry = encoders['Industry'].classes_[best_idx]
-                industry_allocation.append((res_type, best_industry, qty))
+                weighted_probs = pd.Series(probs, index=encoders['Industry'].classes_) * qty
+                total_probs += weighted_probs
 
-            # Create DataFrame for industry allocation
-            df_alloc = pd.DataFrame(industry_allocation, columns=['Residue', 'Industry', 'Quantity_tons'])
-            industry_totals = df_alloc.groupby('Industry')['Quantity_tons'].sum().sort_values(ascending=False)
-
-            st.subheader("📊 Best-Fit Industry Allocation (Dynamic Bar Chart)")
-            fig2, ax2 = plt.subplots()
-            sns.barplot(x=industry_totals.values, y=industry_totals.index, ax=ax2, palette="crest")
-            ax2.set_xlabel("Total Residue Allocated (tons)")
-            ax2.set_title("Recommended Industries Based on Residue Types")
-            for i, v in enumerate(industry_totals.values):
-                ax2.text(v + 1, i, f"{v:.1f}t", va='center')
-            st.pyplot(fig2)
+            final_probs = total_probs / total_probs.sum()
+            st.subheader("📊 Combined Industry Allocation (All Residues)")
+            st.bar_chart(final_probs)
 
         else:
             st.warning("Selected crop not found in reference database.")
