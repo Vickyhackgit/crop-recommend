@@ -10,7 +10,7 @@ import seaborn as sns
 # === Load ML Model ===
 @st.cache_resource
 def load_model():
-     data = joblib.load("crop_residue_model.joblib")
+    data = joblib.load("crop_residue_model.joblib")
     return data['model'], data['encoders'], data['feature_names']
 
 model, encoders, feature_names = load_model()
@@ -24,7 +24,7 @@ CROP_RESIDUE_INFO = {
     'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Stalks': 0.70, 'Boll Shells/Husks': 0.30}}
 }
 
-st.title("Crop Residue to Industry Recommendation System")
+st.title("🌾 Crop Residue to Industry Recommendation System")
 
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
@@ -102,11 +102,11 @@ if input_method == "Manual Entry":
 
             # Final Allocation
             df_result = pd.DataFrame(industry_results, columns=['Residue', 'Industry', 'Quantity_tons', 'Confidence'])
-            st.write("### Residue to Industry Mapping")
+            st.write("### 🏭 Residue to Industry Mapping")
             st.dataframe(df_result)
 
             totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
-            st.subheader("Final Industry Allocation")
+            st.subheader("📊 Final Industry Allocation")
             st.bar_chart(totals)
 
         else:
