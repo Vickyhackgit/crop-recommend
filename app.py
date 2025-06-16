@@ -10,8 +10,7 @@ import seaborn as sns
 # === Load ML Model ===
 @st.cache_resource
 def load_model():
-    df = pd.read_csv("train100.csv")
-
+     data = joblib.load("crop_residue_model.joblib")
     return data['model'], data['encoders'], data['feature_names']
 
 model, encoders, feature_names = load_model()
