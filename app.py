@@ -1,4 +1,4 @@
-# app.py - Streamlit Crop Residue to Industry Recommendation System (Final Enhanced Version)
+# app.py - Crop Residue to Industry Prediction with Pie + Dynamic Blue Bar Graph
 
 import streamlit as st
 import pandas as pd
@@ -101,14 +101,7 @@ if input_method == "Manual Entry":
 
             totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
             st.subheader("📊 Final Industry Allocation")
-            fig2, ax2 = plt.subplots()
-            sns.barplot(x=totals.values, y=totals.index, palette="crest", ax=ax2)
-            for i, v in enumerate(totals.values):
-                ax2.text(v + 0.5, i, f"{v:.1f}t", va='center')
-            ax2.set_xlabel("Total Residue (tons)")
-            ax2.set_ylabel("Industry")
-            ax2.set_title("Aggregated Industry Allocation")
-            st.pyplot(fig2)
+            st.bar_chart(totals)
 
         else:
             st.warning("Selected crop type not found in database.")
@@ -122,3 +115,4 @@ elif input_method == "Upload CSV/JSON":
             st.dataframe(df_input)
         except Exception as e:
             st.error(f"Error reading file: {e}")
+
