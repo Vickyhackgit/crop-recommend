@@ -1,5 +1,4 @@
-
-# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Enhanced Visuals + Fixed Errors)
+# app.py - Streamlit Deployment Code for Crop Residue Industry Prediction (Enhanced Residue Graph, Modern Industry Chart)
 
 import streamlit as st
 import pandas as pd
@@ -105,7 +104,6 @@ if input_method == "Manual Entry":
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # Custom bar chart using matplotlib with values on top
             fig, ax = plt.subplots()
             bars = ax.bar(residue_qty.keys(), residue_qty.values(), color=sns.color_palette("Set2"))
             ax.set_ylabel("Quantity (tons)")
@@ -115,7 +113,6 @@ if input_method == "Manual Entry":
                 ax.text(bar.get_x() + bar.get_width()/2., height + 0.5, f'{height:.1f}', ha='center', va='bottom')
             st.pyplot(fig)
 
-            # Industry recommendation per residue
             for res_type, qty in residue_qty.items():
                 sample = input_features.copy()
                 sample['Residue_Type'] = res_type
@@ -143,11 +140,8 @@ if input_method == "Manual Entry":
                     prob_df = pd.DataFrame({
                         'Industry': encoders['Industry'].classes_,
                         'Probability': probs
-                    }).sort_values(by='Probability', ascending=False)
-                    fig2, ax2 = plt.subplots()
-                    sns.barplot(data=prob_df, x='Probability', y='Industry', ax=ax2, palette="crest")
-                    ax2.set_title("Industry Prediction Probabilities")
-                    st.pyplot(fig2)
+                    })
+                    st.bar_chart(prob_df.set_index("Industry"))
 
                 except Exception as e:
                     st.error(f"Prediction error for {res_type}: {e}")
