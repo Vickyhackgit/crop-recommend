@@ -1,4 +1,4 @@
-# app.py - Crop Residue to Industry Prediction (Final with Encoder Check)
+# app.py - Crop Residue to Industry Prediction (Enhanced with Multi-Industry Probabilities)
 
 import streamlit as st
 import pandas as pd
@@ -24,11 +24,12 @@ CROP_RESIDUE_INFO = {
     'Cotton': {'residue_to_crop_ratio': 3.0, 'residue_distribution': {'Straw': 0.70, 'Husk': 0.30}}
 }
 
-st.title("Crop Residue to Industry Recommendation System")
+st.title("🌾 Crop Residue to Industry Recommendation System")
 
 st.sidebar.header("Input Method")
 input_method = st.sidebar.radio("Choose input method:", ["Manual Entry", "Upload CSV/JSON"])
 
+# === MANUAL ENTRY ===
 if input_method == "Manual Entry":
     st.subheader("Enter Farm & Residue Details")
     farm_id = st.text_input("Farm ID", "F1001")
@@ -55,9 +56,10 @@ if input_method == "Manual Entry":
         'Residue_Age_days': st.slider("Residue Age (days)", 0, 365, 35)
     }
 
-    if st.button("Predict Suitable Industries for Residues"):
+    if st.button("🔍 Predict Suitable Industries for Residues"):
         if crop_type in CROP_RESIDUE_INFO:
-            st.subheader("Estimated Residue & Recommendations")
+            st.subheader("📊 Estimated Residue & Multi-Industry Mapping")
+
             ratio = CROP_RESIDUE_INFO[crop_type]['residue_to_crop_ratio']
             total_residue = production * ratio
             st.write(f"Residue-to-Crop Ratio: **{ratio}**, Total Residue: **{total_residue:.2f} tons**")
@@ -67,26 +69,33 @@ if input_method == "Manual Entry":
                 for res_type, pct in CROP_RESIDUE_INFO[crop_type]['residue_distribution'].items()
             }
 
-            # Pie Chart of Residue
+            # Pie Chart of Residue Types
             fig1, ax1 = plt.subplots()
-            ax1.pie(residue_qty.values(), labels=[f"{k} ({v:.1f}t)" for k, v in residue_qty.items()], autopct='%1.1f%%',
-                    startangle=90, colors=sns.color_palette("bright"))
+            ax1.pie(
+                residue_qty.values(),
+                labels=[f"{k} ({v:.1f}t)" for k, v in residue_qty.items()],
+                autopct='%1.1f%%', startangle=90,
+                colors=sns.color_palette("bright")
+            )
             ax1.axis('equal')
             ax1.set_title("Residue Type Distribution")
             st.pyplot(fig1)
 
             # Prediction & Allocation
-            industry_results = []
+            detailed_predictions = []
+            industry_total = {}
+
             for res_type, qty in residue_qty.items():
                 entry = input_features.copy()
                 entry['Residue_Type'] = res_type
                 df = pd.DataFrame([entry])
 
+                # Encode categoricals
                 for col in ['Crop_Type', 'Residue_Type', 'Harvest_Season', 'Storage_Condition']:
                     if df.at[0, col] in encoders[col].classes_:
                         df[col] = encoders[col].transform(df[col])
                     else:
-                        st.error(f"❌ Value '{df.at[0, col]}' not recognized for column '{col}'. Please check your input.")
+                        st.error(f"❌ Invalid value '{df.at[0, col]}' in column '{col}'")
                         st.stop()
 
                 for f in feature_names:
@@ -95,25 +104,36 @@ if input_method == "Manual Entry":
                 df = df[feature_names]
 
                 probs = model.predict_proba(df)[0]
-                idx = np.argmax(probs)
-                industry = encoders['Industry'].classes_[idx]
-                confidence = probs[idx]
-                industry_results.append((res_type, industry, qty, confidence))
+                sorted_indices = np.argsort(probs)[::-1]
 
-            # Final Allocation
-            df_result = pd.DataFrame(industry_results, columns=['Residue', 'Industry', 'Quantity_tons', 'Confidence'])
-            st.write("### Residue to Industry Mapping")
+                for idx in sorted_indices:
+                    industry_name = encoders['Industry'].classes_[idx]
+                    prob = probs[idx]
+                    allocated_qty = prob * qty
+
+                    detailed_predictions.append({
+                        "Residue": res_type,
+                        "Industry": industry_name,
+                        "Predicted %": f"{prob:.1%}",
+                        "Allocated Qty (tons)": allocated_qty
+                    })
+
+                    # Accumulate for final bar chart
+                    industry_total[industry_name] = industry_total.get(industry_name, 0) + allocated_qty
+
+            df_result = pd.DataFrame(detailed_predictions)
+            st.write("### 🔎 Residue-to-Industry Probabilistic Mapping")
             st.dataframe(df_result)
 
-            totals = df_result.groupby("Industry")["Quantity_tons"].sum().sort_values(ascending=False)
-            st.subheader("Final Industry Allocation")
-            st.bar_chart(totals)
+            st.subheader("🏭 Final Industry-Wise Allocation (Total tons)")
+            st.bar_chart(pd.Series(industry_total).sort_values(ascending=False))
 
         else:
-            st.warning("Selected crop type not found in database.")
+            st.warning("Selected crop type not found in reference database.")
 
+# === FILE UPLOAD MODE ===
 elif input_method == "Upload CSV/JSON":
-    uploaded_file = st.file_uploader("Upload CSV/JSON with residue details", type=["csv", "json"])
+    uploaded_file = st.file_uploader("Upload CSV or JSON with residue details", type=["csv", "json"])
     if uploaded_file:
         try:
             df_input = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_json(uploaded_file)
